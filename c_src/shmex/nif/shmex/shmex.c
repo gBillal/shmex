@@ -57,7 +57,7 @@ void shmex_add_guard(ErlNifEnv *env, ErlNifResourceType *guard_type,
 /**
  * Set the new capacity for Shmex.
  *
- * I windows the handle needs to be closed and re-created with the new capacity
+ * On Windows the handle needs to be closed and re-created with the new capacity
  * the data is copied to the new memory.
  */
 ShmexLibResult shmex_shm_set_capacity(ErlNifEnv *env, ErlNifResourceType *guard_type, Shmex *payload,
