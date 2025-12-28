@@ -1,4 +1,10 @@
+#include <stdio.h>
 #include <string.h>
+
+#ifndef _WIN32
+#include <fcntl.h>
+#include <sys/mman.h>
+#endif
 
 #include "shmex.h"
 
@@ -40,7 +46,7 @@ void shmex_add_guard(ErlNifEnv *env, ErlNifResourceType *guard_type,
   ShmexGuard *guard = enif_alloc_resource(guard_type, sizeof(*guard));
 #ifdef _WIN32
   guard->handle = payload->handle;
-#elif
+#else
   strcpy(guard->name, payload->name);
   guard->handle = NULL;
 #endif
@@ -50,11 +56,11 @@ void shmex_add_guard(ErlNifEnv *env, ErlNifResourceType *guard_type,
 
 /**
  * Set the new capacity for Shmex.
- * 
+ *
  * I windows the handle needs to be closed and re-created with the new capacity
  * the data is copied to the new memory.
  */
-ShmexLibResult shmex_shm_set_capacity(ErlNifEnv *env, ErlNifResourceType *guard_type, Shmex *payload, 
+ShmexLibResult shmex_shm_set_capacity(ErlNifEnv *env, ErlNifResourceType *guard_type, Shmex *payload,
                                       unsigned capacity) {
   ShmexLibResult result = shmex_set_capacity(payload, capacity);
 #ifdef _WIN32
@@ -76,7 +82,7 @@ void shmex_guard_destructor(ErlNifEnv *env, void *resource) {
 
   ShmexGuard *guard = (ShmexGuard *)resource;
   if (guard->handle == NULL) {
-  shmex_shm_unlink(guard->name);
+    shmex_shm_unlink(guard->name);
   } else {
     shmex_shm_unlink(guard->handle);
   }

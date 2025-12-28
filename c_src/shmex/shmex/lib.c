@@ -174,7 +174,7 @@ ShmexLibResult shmex_unlink(Shmex *payload) {
  * allocated with `shmex_allocate`.
  */
 void shmex_shm_unlink(void *param) {
-  char* name = (char*) param
+  char* name = (char*) param;
   static const unsigned name_cmp_prefix_len =
       SHMEX_SHM_NAME_PREFIX_LEN + SHMEX_SHM_NAME_TIME_ID_LEN;
   char current_name[SHMEX_SHM_NAME_LEN];
