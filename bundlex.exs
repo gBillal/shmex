@@ -2,13 +2,25 @@ defmodule Shmex.BundlexProject do
   use Bundlex.Project
 
   def project do
+    os = Bundlex.get_target().os
+
     [
-      natives: natives(),
-      libs: libs()
+      natives: natives(os),
+      libs: libs(os)
     ]
   end
 
-  defp natives() do
+  defp natives("windows") do
+    [
+      shmex: [
+        interface: :nif,
+        deps: [shmex: :shmex_nif, bunch_native: :bunch],
+        sources: ["shmex.c"]
+      ]
+    ]
+  end
+
+  defp natives(_) do
     [
       shmex: [
         interface: :nif,
@@ -18,7 +30,29 @@ defmodule Shmex.BundlexProject do
     ]
   end
 
-  defp libs() do
+  defp libs("windows") do
+    [
+      lib: [
+        src_base: "shmex/shmex",
+        sources: ["lib_win.c"],
+        libs: ["ole32.lib"]
+      ],
+      shmex_nif: [
+        interface: :nif,
+        deps: [shmex: :lib, bunch_native: :bunch],
+        src_base: "shmex/nif/shmex",
+        sources: ["shmex.c"]
+      ],
+      shmex: [
+        interface: :cnode,
+        deps: [shmex: :lib],
+        src_base: "shmex/cnode/shmex",
+        sources: ["shmex.c"]
+      ]
+    ]
+  end
+
+  defp libs(_) do
     [
       lib: [
         src_base: "shmex/shmex",

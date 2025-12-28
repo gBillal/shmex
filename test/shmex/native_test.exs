@@ -25,8 +25,10 @@ defmodule Shmex.NativeTest do
       assert new_shm.size == 0
       assert new_shm.capacity == shm.capacity
 
-      assert {:ok, stat} = File.stat(@shm_path)
-      assert stat.size == new_shm.capacity
+      if not windows?() do
+        assert {:ok, stat} = File.stat(@shm_path)
+        assert stat.size == new_shm.capacity
+      end
     end
 
     test "when name is not provided" do
@@ -38,8 +40,10 @@ defmodule Shmex.NativeTest do
       assert new_shm.size == 0
       assert new_shm.capacity == shm.capacity
 
-      assert {:ok, stat} = File.stat(Path.join(@shm_dir, new_shm.name))
-      assert stat.size == new_shm.capacity
+      if not windows?() do
+        assert {:ok, stat} = File.stat(Path.join(@shm_dir, new_shm.name))
+        assert stat.size == new_shm.capacity
+      end
     end
   end
 
@@ -65,8 +69,11 @@ defmodule Shmex.NativeTest do
     assert {:ok, shm} = @module.set_capacity(shm, new_capacity)
     assert shm.capacity == new_capacity
 
-    assert {:ok, stat} = File.stat(@shm_path)
-    assert stat.size == new_capacity
+    if not windows?() do
+      assert {:ok, stat} = File.stat(@shm_path)
+      assert stat.size == new_capacity
+    end
+
     @module.ensure_not_gc(shm)
   end
 
@@ -81,11 +88,14 @@ defmodule Shmex.NativeTest do
       assert shm.size == data_size
       assert shm.capacity == capacity
 
-      assert {:ok, stat} = File.stat(@shm_path)
-      assert stat.size == capacity
+      if not windows?() do
+        assert {:ok, stat} = File.stat(@shm_path)
+        assert stat.size == capacity
 
-      assert <<tested_head::binary-size(data_size), _tail::binary>> = File.read!(@shm_path)
-      assert tested_head == data
+        assert <<tested_head::binary-size(data_size), _tail::binary>> = File.read!(@shm_path)
+        assert tested_head == data
+      end
+
       @module.ensure_not_gc(shm)
     end
 
@@ -97,10 +107,13 @@ defmodule Shmex.NativeTest do
       assert shm.size == data_size
       assert shm.capacity == data_size
 
-      assert {:ok, stat} = File.stat(@shm_path)
-      assert stat.size == data_size
+      if not windows?() do
+        assert {:ok, stat} = File.stat(@shm_path)
+        assert stat.size == data_size
 
-      assert File.read!(@shm_path) == data
+        assert File.read!(@shm_path) == data
+      end
+
       @module.ensure_not_gc(shm)
     end
   end
@@ -165,6 +178,8 @@ defmodule Shmex.NativeTest do
     assert {:ok, shm_b} = @module.write(shm_b, data)
     assert {:ok, res_shm} = @module.append(shm_a, shm_b)
 
+    shm_a_capacity = shm_a.capacity
+
     shm_a = nil
     shm_b = nil
     assert shm_a == nil
@@ -173,7 +188,7 @@ defmodule Shmex.NativeTest do
 
     assert @module.read(res_shm) == {:ok, data <> data}
     assert res_shm.size == 2 * data_size
-    assert res_shm.capacity == 2 * data_size
+    assert res_shm.capacity == max(2 * data_size, shm_a_capacity)
   end
 
   @tag :shm_tmpfs
@@ -183,14 +198,19 @@ defmodule Shmex.NativeTest do
     assert {:ok, shm} = @module.allocate(%Shmex{name: @shm_name, capacity: capacity})
     assert {:ok, shm} = @module.write(shm, data)
 
-    assert {:ok, stat} = File.stat(@shm_path)
-    assert stat.size == capacity
+    if not windows?() do
+      assert {:ok, stat} = File.stat(@shm_path)
+      assert stat.size == capacity
+    end
 
     assert {:ok, shm} = @module.trim(shm)
-    assert {:ok, stat} = File.stat(@shm_path)
-    assert stat.size == data_size
-    assert shm.capacity == stat.size
     assert shm.capacity == shm.size
+
+    if not windows?() do
+      assert {:ok, stat} = File.stat(@shm_path)
+      assert stat.size == data_size
+      assert shm.capacity == stat.size
+    end
   end
 
   @tag :shm_tmpfs
@@ -202,14 +222,19 @@ defmodule Shmex.NativeTest do
     assert {:ok, shm} = @module.allocate(%Shmex{name: @shm_name, capacity: capacity})
     assert {:ok, shm} = @module.write(shm, data)
 
-    assert {:ok, stat} = File.stat(@shm_path)
-    assert stat.size == capacity
+    if not windows?() do
+      assert {:ok, stat} = File.stat(@shm_path)
+      assert stat.size == capacity
+    end
 
     assert {:ok, shm} = @module.trim(shm, offset)
-    assert {:ok, stat} = File.stat(@shm_path)
-    assert stat.size == data_size - offset
     assert shm.size == data_size - offset
     assert shm.capacity == shm.size
+
+    if not windows?() do
+      assert {:ok, stat} = File.stat(@shm_path)
+      assert stat.size == data_size - offset
+    end
 
     <<_discarded::binary-size(offset), trimmed_data::binary>> = data
     assert @module.read(shm) == {:ok, trimmed_data}
@@ -224,4 +249,6 @@ defmodule Shmex.NativeTest do
       data_size: byte_size(data)
     ]
   end
+
+  def windows?, do: match?({:win32, _}, :os.type())
 end

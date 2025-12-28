@@ -22,11 +22,24 @@
    (1 + (int)ceil(log10(SHMEX_ALLOC_MAX_ATTEMPTS))) + 1)
 #define SHMEX_ELIXIR_STRUCT_ATOM "Elixir.Shmex"
 
+#ifndef MAP_FAILED
+#define MAP_FAILED (void*)-1
+#endif
+
+#ifdef SHMEX_NIF
+#define ALLOC(X) enif_alloc(X)
+#define FREE(X) enif_free(X)
+#else
+#define ALLOC(X) malloc(X)
+#define FREE(X) free(X)
+#endif
+
 typedef struct {
   char *name;
   unsigned int size;
   unsigned int capacity;
   void *mapped_memory;
+  void* handle; // store windows HANDLE
 #ifdef SHMEX_NIF
   ERL_NIF_TERM guard;
 #endif
@@ -51,4 +64,4 @@ ShmexLibResult shmex_set_capacity(Shmex *payload, size_t capacity);
 void shmex_unmap(Shmex *payload);
 ShmexLibResult shmex_unlink(Shmex *payload);
 const char *shmex_lib_result_to_string(ShmexLibResult result);
-void shmex_shm_unlink(char *name);
+void shmex_shm_unlink(void *name);

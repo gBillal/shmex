@@ -49,7 +49,7 @@ defmodule Shmex.Mixfile do
 
   defp deps() do
     [
-      {:bundlex, "~> 1.0"},
+      {:bundlex, github: "gBillal/bundlex", branch: "visual-studio-include-deps", override: true},
       {:bunch_native, "~> 0.5.0"},
       {:ex_doc, "~> 0.21", only: :dev, runtime: false},
       {:dialyxir, ">= 0.0.0", only: :dev, runtime: false},

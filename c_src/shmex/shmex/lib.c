@@ -11,14 +11,6 @@
 
 #include "lib.h"
 
-#ifdef SHMEX_NIF
-#define ALLOC(X) enif_alloc(X)
-#define FREE(X) enif_free(X)
-#else
-#define ALLOC(X) malloc(X)
-#define FREE(X) free(X)
-#endif
-
 void shmex_generate_shm_name(char *name, int attempt) {
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -181,7 +173,8 @@ ShmexLibResult shmex_unlink(Shmex *payload) {
  * but contains checks to prevent name conflicts when dealing with SHMs
  * allocated with `shmex_allocate`.
  */
-void shmex_shm_unlink(char *name) {
+void shmex_shm_unlink(void *param) {
+  char* name = (char*) param
   static const unsigned name_cmp_prefix_len =
       SHMEX_SHM_NAME_PREFIX_LEN + SHMEX_SHM_NAME_TIME_ID_LEN;
   char current_name[SHMEX_SHM_NAME_LEN];
@@ -191,7 +184,7 @@ void shmex_shm_unlink(char *name) {
     // very rare case, it may lead to RC in the following scenario:
     //
     // * SHM is allocated
-    // * then it is unliked immediately
+    // * then it is unlinked immediately
     // * another SHM is allocated with the same name
     // * some other descructor tries to unlink the first SHM, but in fact
     //   it unlinks the second one, because it has the same name

@@ -6,10 +6,8 @@
 #include <fcntl.h>
 #include <shmex/shmex.h>
 #include <string.h>
-#include <sys/mman.h>
 #include <sys/stat.h> /* For mode constants */
 #include <sys/types.h>
-#include <unistd.h>
 
 ErlNifResourceType *SHMEX_GUARD_RESOURCE_TYPE;
 
@@ -26,7 +24,7 @@ int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info) {
 static ERL_NIF_TERM export_allocate(ErlNifEnv *env, int argc,
                                     const ERL_NIF_TERM argv[]) {
   BUNCH_UNUSED(argc);
-  PARSE_SHMEX_ARG(0, payload);
+  PARSE_SHMEX_ARG(0, payload, SHMEX_GUARD_RESOURCE_TYPE);
   ERL_NIF_TERM return_term;
 
   ShmexLibResult result =
@@ -45,7 +43,7 @@ static ERL_NIF_TERM export_allocate(ErlNifEnv *env, int argc,
 static ERL_NIF_TERM export_add_guard(ErlNifEnv *env, int argc,
                                      const ERL_NIF_TERM argv[]) {
   BUNCH_UNUSED(argc);
-  PARSE_SHMEX_ARG(0, payload);
+  PARSE_SHMEX_ARG(0, payload, SHMEX_GUARD_RESOURCE_TYPE);
 
   ShmexGuard *guard;
   if (enif_get_resource(env, payload.guard, SHMEX_GUARD_RESOURCE_TYPE,
@@ -59,11 +57,11 @@ static ERL_NIF_TERM export_add_guard(ErlNifEnv *env, int argc,
 static ERL_NIF_TERM export_set_capacity(ErlNifEnv *env, int argc,
                                         const ERL_NIF_TERM argv[]) {
   BUNCH_UNUSED(argc);
-  PARSE_SHMEX_ARG(0, payload);
+  PARSE_SHMEX_ARG(0, payload, SHMEX_GUARD_RESOURCE_TYPE);
   BUNCH_PARSE_UINT_ARG(1, capacity);
   ERL_NIF_TERM return_term;
 
-  ShmexLibResult result = shmex_set_capacity(&payload, capacity);
+  ShmexLibResult result = shmex_shm_set_capacity(env, SHMEX_GUARD_RESOURCE_TYPE, &payload, capacity);
   if (SHMEX_RES_OK == result) {
     return_term = bunch_make_ok_tuple(env, shmex_make_term(env, &payload));
   } else {
@@ -76,10 +74,10 @@ static ERL_NIF_TERM export_set_capacity(ErlNifEnv *env, int argc,
 static ERL_NIF_TERM export_read(ErlNifEnv *env, int argc,
                                 const ERL_NIF_TERM argv[]) {
   BUNCH_UNUSED(argc);
-  PARSE_SHMEX_ARG(0, payload);
+  PARSE_SHMEX_ARG(0, payload, SHMEX_GUARD_RESOURCE_TYPE);
   BUNCH_PARSE_UINT_ARG(1, cnt);
-
   ERL_NIF_TERM return_term;
+
   if (cnt > payload.size) {
     return_term = bunch_make_error_str(env, "invalid_read_size");
     goto exit_read;
@@ -104,12 +102,12 @@ exit_read:
 static ERL_NIF_TERM export_write(ErlNifEnv *env, int argc,
                                  const ERL_NIF_TERM argv[]) {
   BUNCH_UNUSED(argc);
-  PARSE_SHMEX_ARG(0, payload);
+  PARSE_SHMEX_ARG(0, payload, SHMEX_GUARD_RESOURCE_TYPE);
   BUNCH_PARSE_BINARY_ARG(1, data);
   ERL_NIF_TERM return_term;
 
   if (payload.capacity < data.size) {
-    shmex_set_capacity(&payload, data.size);
+    shmex_shm_set_capacity(env, SHMEX_GUARD_RESOURCE_TYPE, &payload, data.size);
   }
 
   ShmexLibResult result = shmex_open_and_mmap(&payload);
@@ -129,7 +127,7 @@ exit_write:
 static ERL_NIF_TERM export_split_at(ErlNifEnv *env, int argc,
                                     const ERL_NIF_TERM argv[]) {
   BUNCH_UNUSED(argc);
-  PARSE_SHMEX_ARG(0, old_payload);
+  PARSE_SHMEX_ARG(0, old_payload, SHMEX_GUARD_RESOURCE_TYPE);
   BUNCH_PARSE_UINT_ARG(1, split_pos);
   Shmex new_payload;
   shmex_init(env, &new_payload, 4096);
@@ -158,7 +156,7 @@ static ERL_NIF_TERM export_split_at(ErlNifEnv *env, int argc,
     goto exit_split_at;
   }
 
-  memcpy(new_payload.mapped_memory, old_payload.mapped_memory + split_pos,
+  memcpy(new_payload.mapped_memory, (char*) old_payload.mapped_memory + split_pos,
          new_size);
 
   old_payload.size = split_pos;
@@ -176,7 +174,7 @@ exit_split_at:
 static ERL_NIF_TERM export_trim_leading(ErlNifEnv *env, int argc,
                                         const ERL_NIF_TERM argv[]) {
   BUNCH_UNUSED(argc);
-  PARSE_SHMEX_ARG(0, payload);
+  PARSE_SHMEX_ARG(0, payload, SHMEX_GUARD_RESOURCE_TYPE);
   BUNCH_PARSE_UINT_ARG(1, offset);
   ERL_NIF_TERM return_term;
   ShmexLibResult result;
@@ -188,7 +186,7 @@ static ERL_NIF_TERM export_trim_leading(ErlNifEnv *env, int argc,
   }
 
   size_t new_size = payload.size - offset;
-  memmove(payload.mapped_memory, payload.mapped_memory + offset, new_size);
+  memmove(payload.mapped_memory, (char*) payload.mapped_memory + offset, new_size);
   payload.size = new_size;
   return_term = bunch_make_ok_tuple(env, shmex_make_term(env, &payload));
 exit_trim_leading:
@@ -199,7 +197,7 @@ exit_trim_leading:
 static ERL_NIF_TERM export_ensure_not_gc(ErlNifEnv *env, int argc,
                                          const ERL_NIF_TERM argv[]) {
   BUNCH_UNUSED(argc);
-  PARSE_SHMEX_ARG(0, payload);
+  PARSE_SHMEX_ARG(0, payload, SHMEX_GUARD_RESOURCE_TYPE);
   shmex_release(&payload);
   return bunch_make_ok(env);
 }
@@ -207,16 +205,18 @@ static ERL_NIF_TERM export_ensure_not_gc(ErlNifEnv *env, int argc,
 static ERL_NIF_TERM export_append(ErlNifEnv *env, int argc,
                                   const ERL_NIF_TERM argv[]) {
   BUNCH_UNUSED(argc);
-  PARSE_SHMEX_ARG(0, left);
-  PARSE_SHMEX_ARG(1, right);
+  PARSE_SHMEX_ARG(0, left, SHMEX_GUARD_RESOURCE_TYPE);
+  PARSE_SHMEX_ARG(1, right, SHMEX_GUARD_RESOURCE_TYPE);
   ERL_NIF_TERM return_term;
   ShmexLibResult result;
 
   size_t new_capacity = left.size + right.size;
-  result = shmex_set_capacity(&left, new_capacity);
-  if (SHMEX_RES_OK != result) {
-    return_term = shmex_make_error_term(env, result);
-    goto exit_append;
+  if (new_capacity > left.capacity) {
+    result = shmex_shm_set_capacity(env, SHMEX_GUARD_RESOURCE_TYPE, &left, new_capacity);
+    if (SHMEX_RES_OK != result) {
+      return_term = shmex_make_error_term(env, result);
+      goto exit_append;
+    }
   }
 
   result = shmex_open_and_mmap(&left);
@@ -231,7 +231,7 @@ static ERL_NIF_TERM export_append(ErlNifEnv *env, int argc,
     goto exit_append;
   }
 
-  memcpy(left.mapped_memory + left.size, right.mapped_memory, right.size);
+  memcpy((char*) left.mapped_memory + left.size, right.mapped_memory, right.size);
   left.size = new_capacity;
   return_term = bunch_make_ok_tuple(env, shmex_make_term(env, &left));
 exit_append:

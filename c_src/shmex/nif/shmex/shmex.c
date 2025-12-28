@@ -1,10 +1,4 @@
-#include <fcntl.h>
-#include <stdio.h>
 #include <string.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <time.h>
-#include <unistd.h>
 
 #include "shmex.h"
 
@@ -19,6 +13,7 @@ void shmex_init(ErlNifEnv *env, Shmex *payload, unsigned capacity) {
   payload->capacity = capacity;
   payload->mapped_memory = MAP_FAILED;
   payload->name = NULL;
+  payload->handle = NULL;
 }
 
 /**
@@ -43,9 +38,32 @@ ShmexLibResult shmex_allocate(ErlNifEnv *env, ErlNifResourceType *guard_type,
 void shmex_add_guard(ErlNifEnv *env, ErlNifResourceType *guard_type,
                      Shmex *payload) {
   ShmexGuard *guard = enif_alloc_resource(guard_type, sizeof(*guard));
+#ifdef _WIN32
+  guard->handle = payload->handle;
+#elif
   strcpy(guard->name, payload->name);
+  guard->handle = NULL;
+#endif
   payload->guard = enif_make_resource(env, guard);
   enif_release_resource(guard);
+}
+
+/**
+ * Set the new capacity for Shmex.
+ * 
+ * I windows the handle needs to be closed and re-created with the new capacity
+ * the data is copied to the new memory.
+ */
+ShmexLibResult shmex_shm_set_capacity(ErlNifEnv *env, ErlNifResourceType *guard_type, Shmex *payload, 
+                                      unsigned capacity) {
+  ShmexLibResult result = shmex_set_capacity(payload, capacity);
+#ifdef _WIN32
+  if (result == SHMEX_RES_OK) {
+    shmex_add_guard(env, guard_type, payload);
+  }
+#endif
+
+  return result;
 }
 
 /**
@@ -57,7 +75,11 @@ void shmex_guard_destructor(ErlNifEnv *env, void *resource) {
   BUNCH_UNUSED(env);
 
   ShmexGuard *guard = (ShmexGuard *)resource;
+  if (guard->handle == NULL) {
   shmex_shm_unlink(guard->name);
+  } else {
+    shmex_shm_unlink(guard->handle);
+  }
 }
 
 /**
@@ -66,7 +88,7 @@ void shmex_guard_destructor(ErlNifEnv *env, void *resource) {
  * Each call should be paired with `shmex_release` call to deallocate resources
  */
 int shmex_get_from_term(ErlNifEnv *env, ERL_NIF_TERM struct_term,
-                        Shmex *payload) {
+                        Shmex *payload, ErlNifResourceType* guard_type) {
   const ERL_NIF_TERM ATOM_NAME = enif_make_atom(env, "name");
   const ERL_NIF_TERM ATOM_GUARD = enif_make_atom(env, "guard");
   const ERL_NIF_TERM ATOM_SIZE = enif_make_atom(env, "size");
@@ -128,6 +150,15 @@ int shmex_get_from_term(ErlNifEnv *env, ERL_NIF_TERM struct_term,
   payload->name = malloc(name_binary.size + 1);
   memcpy(payload->name, (char *)name_binary.data, name_binary.size);
   payload->name[name_binary.size] = '\0';
+
+#ifdef _WIN32
+  ShmexGuard* guard;
+  if (!enif_get_resource(env, payload->guard, guard_type, (void **)&guard)) {
+    payload->handle = NULL;
+  } else {
+    payload->handle = guard->handle;
+  }
+#endif
 
   return 1;
 }
