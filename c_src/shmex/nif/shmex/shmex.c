@@ -44,11 +44,11 @@ ShmexLibResult shmex_allocate(ErlNifEnv *env, ErlNifResourceType *guard_type,
 void shmex_add_guard(ErlNifEnv *env, ErlNifResourceType *guard_type,
                      Shmex *payload) {
   ShmexGuard *guard = enif_alloc_resource(guard_type, sizeof(*guard));
+
 #ifdef _WIN32
   guard->handle = payload->handle;
 #else
   strcpy(guard->name, payload->name);
-  guard->handle = NULL;
 #endif
   payload->guard = enif_make_resource(env, guard);
   enif_release_resource(guard);
@@ -81,11 +81,11 @@ void shmex_guard_destructor(ErlNifEnv *env, void *resource) {
   BUNCH_UNUSED(env);
 
   ShmexGuard *guard = (ShmexGuard *)resource;
-  if (guard->handle == NULL) {
-    shmex_shm_unlink(guard->name);
-  } else {
+#ifdef _WIN32
     shmex_shm_unlink(guard->handle);
-  }
+#else
+    shmex_shm_unlink(guard->name);
+#endif
 }
 
 /**

@@ -211,12 +211,10 @@ static ERL_NIF_TERM export_append(ErlNifEnv *env, int argc,
   ShmexLibResult result;
 
   size_t new_capacity = left.size + right.size;
-  if (new_capacity > left.capacity) {
-    result = shmex_shm_set_capacity(env, SHMEX_GUARD_RESOURCE_TYPE, &left, new_capacity);
-    if (SHMEX_RES_OK != result) {
-      return_term = shmex_make_error_term(env, result);
-      goto exit_append;
-    }
+  result = shmex_shm_set_capacity(env, SHMEX_GUARD_RESOURCE_TYPE, &left, new_capacity);
+  if (SHMEX_RES_OK != result) {
+    return_term = shmex_make_error_term(env, result);
+    goto exit_append;
   }
 
   result = shmex_open_and_mmap(&left);

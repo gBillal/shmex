@@ -178,8 +178,6 @@ defmodule Shmex.NativeTest do
     assert {:ok, shm_b} = @module.write(shm_b, data)
     assert {:ok, res_shm} = @module.append(shm_a, shm_b)
 
-    shm_a_capacity = shm_a.capacity
-
     shm_a = nil
     shm_b = nil
     assert shm_a == nil
@@ -188,7 +186,7 @@ defmodule Shmex.NativeTest do
 
     assert @module.read(res_shm) == {:ok, data <> data}
     assert res_shm.size == 2 * data_size
-    assert res_shm.capacity == max(2 * data_size, shm_a_capacity)
+    assert res_shm.capacity == 2 * data_size
   end
 
   @tag :shm_tmpfs
