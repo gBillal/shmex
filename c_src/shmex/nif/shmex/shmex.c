@@ -67,6 +67,10 @@ ShmexLibResult shmex_shm_set_capacity(ErlNifEnv *env, ErlNifResourceType *guard_
   if (result == SHMEX_RES_OK) {
     shmex_add_guard(env, guard_type, payload);
   }
+#else
+  BUNCH_UNUSED(env);
+  BUNCH_UNUSED(guard_type);
+  BUNCH_UNUSED(payload);
 #endif
 
   return result;
@@ -164,6 +168,8 @@ int shmex_get_from_term(ErlNifEnv *env, ERL_NIF_TERM struct_term,
   } else {
     payload->handle = guard->handle;
   }
+#else
+  BUNCH_UNUSED(guard_type);
 #endif
 
   return 1;

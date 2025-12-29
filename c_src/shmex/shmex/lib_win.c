@@ -63,39 +63,42 @@ ShmexLibResult shmex_set_capacity(Shmex *payload, size_t capacity) {
     return SHMEX_ERROR_SHM_OPEN;
   }
 
-  HANDLE new_handle;
   ShmexLibResult result;
   char *data = NULL;
   int data_size = min(payload->size, capacity);
 
-  payload->mapped_memory = MapViewOfFile(payload->handle, FILE_MAP_ALL_ACCESS, 0, 0, payload->capacity);
-  if (!payload->mapped_memory) {
-    result = SHMEX_ERROR_MMAP;
-    goto shmex_set_capacity_exit;
+  if (data_size != 0) {
+    payload->mapped_memory = MapViewOfFile(payload->handle, FILE_MAP_ALL_ACCESS, 0, 0, payload->capacity);
+    if (!payload->mapped_memory) {
+      result = SHMEX_ERROR_MMAP;
+      goto shmex_set_capacity_exit;
+    }
+
+    data = ALLOC(data_size);
+    memcpy(data, payload->mapped_memory, data_size);
+
+    UnmapViewOfFile(payload->mapped_memory);
   }
-
-  data = ALLOC(data_size);
-  memcpy(data, payload->mapped_memory, data_size);
-
-  UnmapViewOfFile(payload->mapped_memory);
+  
   CloseHandle(payload->handle);
-
   payload->handle = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, capacity, (LPCSTR) payload->name);
   if (!payload->handle) {
     result = SHMEX_ERROR_SHM_OPEN;
     goto shmex_set_capacity_exit;
   }
 
-  payload->mapped_memory = MapViewOfFile(payload->handle, FILE_MAP_ALL_ACCESS, 0, 0, data_size);
-  if (!payload->mapped_memory) {
-    result = SHMEX_ERROR_MMAP;
-    goto shmex_set_capacity_exit;
+  if (data_size != 0) {
+    payload->mapped_memory = MapViewOfFile(payload->handle, FILE_MAP_ALL_ACCESS, 0, 0, data_size);
+    if (!payload->mapped_memory) {
+      result = SHMEX_ERROR_MMAP;
+      goto shmex_set_capacity_exit;
+    }
+
+    memcpy(payload->mapped_memory, data, data_size);
   }
 
-  memcpy(payload->mapped_memory, data, data_size);
   payload->capacity = capacity;
   payload->size = data_size;
-  
   result = SHMEX_RES_OK;
 
 shmex_set_capacity_exit:
