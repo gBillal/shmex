@@ -7,6 +7,14 @@ defmodule Shmex.NativeTest do
   @shm_dir "/dev/shm"
   @shm_path Path.join(@shm_dir, @shm_name)
 
+  defmacro unless_windows(do: block) do
+    quote do
+      if not match?({:win32, _}, :os.type()) do
+        unquote(block)
+      end
+    end
+  end
+
   setup do
     :erlang.garbage_collect()
     :ok
@@ -25,7 +33,7 @@ defmodule Shmex.NativeTest do
       assert new_shm.size == 0
       assert new_shm.capacity == shm.capacity
 
-      if not windows?() do
+      unless_windows do
         assert {:ok, stat} = File.stat(@shm_path)
         assert stat.size == new_shm.capacity
       end
@@ -40,7 +48,7 @@ defmodule Shmex.NativeTest do
       assert new_shm.size == 0
       assert new_shm.capacity == shm.capacity
 
-      if not windows?() do
+      unless_windows do
         assert {:ok, stat} = File.stat(Path.join(@shm_dir, new_shm.name))
         assert stat.size == new_shm.capacity
       end
@@ -49,6 +57,7 @@ defmodule Shmex.NativeTest do
 
   describe "add_guard/1" do
     @tag :shm_tmpfs
+    @tag :not_windows
     test "when SHM is not guarded" do
       assert File.touch(@shm_path) == :ok
       assert {:ok, shm} = @module.add_guard(%Shmex{name: @shm_name})
@@ -69,7 +78,7 @@ defmodule Shmex.NativeTest do
     assert {:ok, shm} = @module.set_capacity(shm, new_capacity)
     assert shm.capacity == new_capacity
 
-    if not windows?() do
+    unless_windows do
       assert {:ok, stat} = File.stat(@shm_path)
       assert stat.size == new_capacity
     end
@@ -88,7 +97,7 @@ defmodule Shmex.NativeTest do
       assert shm.size == data_size
       assert shm.capacity == capacity
 
-      if not windows?() do
+      unless_windows do
         assert {:ok, stat} = File.stat(@shm_path)
         assert stat.size == capacity
 
@@ -107,7 +116,7 @@ defmodule Shmex.NativeTest do
       assert shm.size == data_size
       assert shm.capacity == data_size
 
-      if not windows?() do
+      unless_windows do
         assert {:ok, stat} = File.stat(@shm_path)
         assert stat.size == data_size
 
@@ -196,7 +205,7 @@ defmodule Shmex.NativeTest do
     assert {:ok, shm} = @module.allocate(%Shmex{name: @shm_name, capacity: capacity})
     assert {:ok, shm} = @module.write(shm, data)
 
-    if not windows?() do
+    unless_windows do
       assert {:ok, stat} = File.stat(@shm_path)
       assert stat.size == capacity
     end
@@ -204,7 +213,7 @@ defmodule Shmex.NativeTest do
     assert {:ok, shm} = @module.trim(shm)
     assert shm.capacity == shm.size
 
-    if not windows?() do
+    unless_windows do
       assert {:ok, stat} = File.stat(@shm_path)
       assert stat.size == data_size
       assert shm.capacity == stat.size
@@ -220,7 +229,7 @@ defmodule Shmex.NativeTest do
     assert {:ok, shm} = @module.allocate(%Shmex{name: @shm_name, capacity: capacity})
     assert {:ok, shm} = @module.write(shm, data)
 
-    if not windows?() do
+    unless_windows do
       assert {:ok, stat} = File.stat(@shm_path)
       assert stat.size == capacity
     end
@@ -229,7 +238,7 @@ defmodule Shmex.NativeTest do
     assert shm.size == data_size - offset
     assert shm.capacity == shm.size
 
-    if not windows?() do
+    unless_windows do
       assert {:ok, stat} = File.stat(@shm_path)
       assert stat.size == data_size - offset
     end
@@ -247,6 +256,4 @@ defmodule Shmex.NativeTest do
       data_size: byte_size(data)
     ]
   end
-
-  def windows?, do: match?({:win32, _}, :os.type())
 end
